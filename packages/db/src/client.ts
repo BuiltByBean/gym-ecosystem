@@ -9,6 +9,16 @@ export interface TenantCtx {
   userId: string | null;
 }
 
+/** Postgres array-literal for parameterized `ANY(${...}::uuid[])` casts.
+ *  (drizzle's sql template expands JS arrays into placeholder lists, which
+ *  breaks array casts — pass one text param instead.) */
+export function uuidArrayLiteral(ids: string[]): string {
+  for (const id of ids) {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error(`not a uuid: ${id}`);
+  }
+  return `{${ids.join(',')}}`;
+}
+
 export function createDb(connectionString: string) {
   const pool = new pg.Pool({ connectionString, max: 10 });
   const db = drizzle(pool, { schema });

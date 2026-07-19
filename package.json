@@ -11,17 +11,24 @@
     "dev:db": "tsx packages/db/scripts/dev-pg.ts",
     "dev:api": "tsx watch --clear-screen=false apps/api/src/server.ts",
     "dev:web": "npm run dev -w @gym/web",
+    "start": "tsx apps/api/src/server.ts",
     "db:migrate": "tsx packages/db/scripts/migrate-cli.ts",
     "db:seed": "tsx packages/db/scripts/seed-cli.ts",
+    "db:seed:platform": "tsx packages/db/scripts/seed-platform-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p packages/sync && tsc --noEmit -p packages/authz && tsc --noEmit -p packages/db && tsc --noEmit -p apps/api && tsc --noEmit -p apps/web",
     "build": "npm run build -w @gym/web"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "concurrently": "^9.1.0",
     "drizzle-orm": "^0.38.4",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^3.0.5"
   }

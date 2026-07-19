@@ -1,8 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
+import fastifyStatic from '@fastify/static';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { sql } from 'drizzle-orm';
-import { env, getDb } from '@gym/db';
+import { env, getDb, isProduction, repoRoot, runMigrations } from '@gym/db';
 import { appRouter } from './routers/index.js';
 import { createContext } from './context.js';
 import { mediaKindForMime, openMedia, saveMedia } from './media.js';
@@ -10,6 +14,9 @@ import { mediaKindForMime, openMedia, saveMedia } from './media.js';
 const app = Fastify({
   bodyLimit: 250 * 1024 * 1024, // form videos from phones
   disableRequestLogging: true,
+  // behind Railway's edge: makes req.protocol/req.ip reflect the real client,
+  // which the Secure cookie flag and audit log depend on
+  trustProxy: isProduction,
 });
 
 await app.register(cookie);
@@ -79,6 +86,41 @@ app.get('/api/media/:id', async (req, reply) => {
   return reply.send(media.stream());
 });
 
+// --- static web app -------------------------------------------------------
+// In production the API also serves the built SPA, so the whole product is one
+// deployable unit and the client's relative /api calls are same-origin.
+const webDist = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..', '..', 'web', 'dist',
+);
+const hasWebBuild = fs.existsSync(path.join(webDist, 'index.html'));
+
+if (hasWebBuild) {
+  await app.register(fastifyStatic, {
+    root: webDist,
+    // the plugin's own cacheControl would overwrite setHeaders — own it here
+    cacheControl: false,
+    // hashed assets are immutable; index.html and sw.js must always revalidate
+    setHeaders(res, filePath) {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  });
+
+  // SPA fallback: client-side routes resolve to index.html, API 404s stay JSON
+  app.setNotFoundHandler((req, reply) => {
+    if (req.method !== 'GET' || req.url.startsWith('/api/')) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.sendFile('index.html');
+  });
+} else if (isProduction) {
+  console.warn(`[api] no web build at ${webDist} — serving API only`);
+}
+
 async function waitForDb(timeoutMs = 60_000): Promise<void> {
   const bundle = getDb();
   const deadline = Date.now() + timeoutMs;
@@ -93,6 +135,11 @@ async function waitForDb(timeoutMs = 60_000): Promise<void> {
   }
 }
 
+if (env.MIGRATE_ON_BOOT) {
+  const applied = await runMigrations(env.DATABASE_ADMIN_URL, (m) => console.log(`[db] ${m}`));
+  console.log(applied.length ? `[db] applied ${applied.length} migration(s)` : '[db] schema up to date');
+}
+
 await waitForDb();
-await app.listen({ port: env.API_PORT, host: '127.0.0.1' });
-console.log(`[api] listening on http://127.0.0.1:${env.API_PORT}`);
+await app.listen({ port: env.API_PORT, host: env.HOST });
+console.log(`[api] listening on http://${env.HOST}:${env.API_PORT}${hasWebBuild ? ' (serving web build)' : ''}`);

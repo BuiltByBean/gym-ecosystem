@@ -2,7 +2,6 @@
  * runs migrations, then stays alive until Ctrl+C. `npm run dev` runs this. */
 import fs from 'node:fs';
 import path from 'node:path';
-import EmbeddedPostgres from 'embedded-postgres';
 import { env, repoRoot } from '../src/env.js';
 import { ensureDatabase, runMigrations } from '../src/migrate.js';
 
@@ -10,6 +9,8 @@ const dataDir = path.join(repoRoot(), '.pgdata', 'data');
 const port = env.PG_PORT;
 
 async function main() {
+  // dev-only dependency, imported lazily so production images never need it
+  const { default: EmbeddedPostgres } = await import('embedded-postgres');
   const epg = new EmbeddedPostgres({
     databaseDir: dataDir,
     user: 'postgres',

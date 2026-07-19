@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.1",
+    "@fastify/static": "^8.0.3",
     "@gym/authz": "*",
     "@gym/db": "*",
     "@gym/sync": "*",

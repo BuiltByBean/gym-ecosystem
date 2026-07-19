@@ -11,23 +11,30 @@ const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '.
  * (docs/ARCHITECTURE.md §4). Owner-only providers (Railway, Neon) hand us one
  * superuser-ish url; this creates the second identity from it.
  */
+/** Arbitrary fixed key so every process contends on the same advisory lock. */
+const ROLE_LOCK_KEY = 4_190_233_771;
+
 async function ensureAppRole(client: pg.Client): Promise<void> {
   // CREATE/ALTER ROLE cannot take bind parameters, so the password is inlined —
   // single quotes doubled per SQL string-literal escaping.
   const literal = `'${env.APP_DB_PASSWORD.replaceAll("'", "''")}'`;
-  const role = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = 'app_rw'`);
-  if (role.rowCount === 0) {
-    try {
+  // Role rows are cluster-global: concurrent migrators (parallel test suites,
+  // or two deploys) racing CREATE/ALTER on the same row raise "tuple
+  // concurrently updated". Serialize the whole check-then-write here.
+  await client.query('BEGIN');
+  try {
+    await client.query(`SELECT pg_advisory_xact_lock(${ROLE_LOCK_KEY})`);
+    const role = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = 'app_rw'`);
+    if (role.rowCount === 0) {
       await client.query(`CREATE ROLE app_rw LOGIN PASSWORD ${literal}`);
-    } catch (err) {
-      // parallel test suites on a fresh cluster can race this create —
-      // 23505/42710 mean another connection won; that's fine
-      const code = (err as { code?: string }).code;
-      if (code !== '23505' && code !== '42710') throw err;
+    } else {
+      // keep the role's password in sync with the environment across redeploys
+      await client.query(`ALTER ROLE app_rw LOGIN PASSWORD ${literal}`);
     }
-  } else {
-    // keep the role's password in sync with the environment across redeploys
-    await client.query(`ALTER ROLE app_rw LOGIN PASSWORD ${literal}`);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
   }
 }
 

@@ -1,4 +1,5 @@
 import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify';
+import type {} from '@fastify/cookie'; // FastifyReply setCookie/clearCookie augmentation
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb, schema, uuidv7, type DbBundle, type Tx } from '@gym/db';
 import { AUDITED_ACTIONS, authorize, type Action, type Actor, type Resource } from '@gym/authz';

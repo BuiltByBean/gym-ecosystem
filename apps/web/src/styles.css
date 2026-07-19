@@ -1,0 +1,67 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/archivo';
+@import 'tailwindcss';
+
+/* Design tokens — docs/DESIGN.md. --brand is set at runtime per gym. */
+:root {
+  --brand: #c8472b;
+  --brand-ink: #ffffff;
+}
+
+@theme {
+  --color-ink: #16181d;
+  --color-paper: #f7f5f2;
+  --color-steel: #5b6472;
+  --color-card: #ffffff;
+  --color-signal: #1f7a4d;
+  --color-alarm: #a23b2e;
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-line: #e3e0da;
+  --font-display: 'Archivo Variable', 'Archivo', sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+/* Scoreboard numerals — the signature element */
+.score {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes pr-pop {
+  0% { transform: scale(0.9); opacity: 0; }
+  60% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pr-pop { animation: pr-pop 400ms ease-out; }

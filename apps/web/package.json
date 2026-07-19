@@ -11,6 +11,7 @@
   "dependencies": {
     "@fontsource-variable/archivo": "^5.1.0",
     "@fontsource-variable/inter": "^5.1.0",
+    "@gym/api": "*",
     "@gym/sync": "*",
     "@tanstack/react-query": "^5.60.0",
     "@trpc/client": "^11.0.0",

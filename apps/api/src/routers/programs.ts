@@ -427,7 +427,14 @@ export const programsRouter = router({
         .from(schema.workoutSessions)
         .where(and(eq(schema.workoutSessions.memberId, memberId), eq(schema.workoutSessions.status, 'completed')))
         .groupBy(schema.workoutSessions.programVersionId);
-      return rows.map((r) => {
+      // a member personally assigned a program also "has" its gym-wide offering —
+      // keep the personal assignment only
+      const deduped = rows.filter(
+        (r) =>
+          r.assignment.memberId !== null ||
+          !rows.some((o) => o.program.id === r.program.id && o.assignment.memberId !== null),
+      );
+      return deduped.map((r) => {
         const total =
           (dayCounts.rows as Array<{ version_id: string; days: number }>).find(
             (d) => d.version_id === r.assignment.programVersionId,

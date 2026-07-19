@@ -19,7 +19,10 @@ export async function ensureDatabase(clusterAdminUrl: string, dbName: string): P
     if (!/^[a-z_][a-z0-9_]*$/.test(dbName)) throw new Error(`invalid database name: ${dbName}`);
     const db = await client.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]);
     if (db.rowCount === 0) {
-      await client.query(`CREATE DATABASE "${dbName}"`);
+      // Windows initdb defaults to a legacy encoding — force UTF8 explicitly.
+      await client.query(
+        `CREATE DATABASE "${dbName}" ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0`,
+      );
     }
   } finally {
     await client.end();

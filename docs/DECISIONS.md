@@ -39,3 +39,20 @@ Why: gym↔role membership is the heart of the permission matrix and must live i
 
 **D-012 — Cloudflare Stream over Mux for video.**
 Why: storage-heavy/view-light workload (hundreds of demo videos per gym, modest views) favors Stream's pricing; tus resumable uploads and generated captions included; coherent with R2 + SSL-for-SaaS edge. Mux remains the named fallback if caption quality or reliability disappoints in Phase 2.
+
+---
+
+**D-013 — First-party session auth for v1; Better Auth deferred.**
+Rejected (for now): adopting Better Auth during the v1 build. Why: ~200 lines of scrypt + DB-session code we fully control beat integrating a fast-moving auth framework against our unusual members-without-logins model under build-time constraints. The boundary D-011 demanded (everything behind `apps/api/src/auth/`) is exactly what makes the swap cheap later. Revisit when: MFA/passkeys/SSO land on the roadmap.
+
+**D-014 — npm workspaces + embedded Postgres for dev.**
+Rejected: pnpm/Turborepo (not installed on the target machine; npm 11 does the job) and Docker (not installed). `embedded-postgres` boots a real PG 18 for dev and tests — RLS behavior is identical, `npm run dev` needs zero system setup. CI uses a service container. Databases are created `ENCODING UTF8 TEMPLATE template0` explicitly because Windows initdb defaults to a legacy encoding.
+
+**D-015 — Local-disk media adapter first.**
+The media interface (`apps/api/src/media.ts`) is the contract from ARCHITECTURE §7; dev stores MP4s on disk with Range-request streaming. Stream/R2 drop in behind it with credentials — approval workflow, versioned video groups, and permissions are already real.
+
+**D-016 — Dev payment provider behind real money math.**
+Ledger, rate freezing, redemption, and incidents are fully real; only the charge is simulated (`provider='dev'`). Stripe Connect lands once OPEN_QUESTIONS #1 (merchant of record) is answered — the payments table already carries provider/provider_ref.
+
+**D-017 — Charts never wear the gym's brand color.**
+Data marks use a fixed, CVD-validated palette (see `apps/web/src/components/charts.tsx`); brand stays on interface accents. A gym can pick any brand hue without breaking chart legibility or series identity — validated with the palette checker rather than eyeballed.

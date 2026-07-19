@@ -56,11 +56,11 @@ export const biRouter = router({
           GROUP BY l.model_id
         ) su ON su.model_id = em.id
         LEFT JOIN (
-          SELECT es.unit_id, eu.model_id, count(*) AS scan_count
+          SELECT eu.model_id, count(*) AS scan_count
           FROM equipment_scans es
           JOIN equipment_units eu ON eu.id = es.unit_id
           WHERE es.gym_id = ${gymId} AND es.created_at > now() - interval '30 days'
-          GROUP BY es.unit_id, eu.model_id
+          GROUP BY eu.model_id
         ) sc ON sc.model_id = em.id
         WHERE em.gym_id = ${gymId} AND em.archived_at IS NULL
         ORDER BY coalesce(su.set_count, 0) + coalesce(sc.scan_count, 0) DESC

@@ -30,14 +30,16 @@ export default async function setup(): Promise<(() => Promise<void>) | void> {
   }
   const pidFile = path.join(dataDir, 'postmaster.pid');
   try {
+    if (fs.existsSync(pidFile)) fs.rmSync(pidFile); // stale pid from a killed run
     await epg.start();
   } catch (err) {
-    if (fs.existsSync(pidFile)) {
-      fs.rmSync(pidFile);
-      await epg.start();
-    } else {
-      throw err;
-    }
+    // Cluster state can be wedged after a hard kill (embedded-postgres sometimes
+    // rejects with no message). A test cluster is disposable: rebuild it.
+    console.warn('[test-pg] start failed, rebuilding test cluster…', err ?? '(no error detail)');
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.mkdirSync(dataDir, { recursive: true });
+    await epg.initialise();
+    await epg.start();
   }
 
   const adminUrl = `postgres://postgres:postgres@127.0.0.1:${TEST_PORT}/postgres`;

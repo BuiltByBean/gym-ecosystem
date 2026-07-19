@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.pgdata/
+.pgdata-test/
+uploads/
+.env
+*.tsbuildinfo
+*.local
+.DS_Store

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { schema, uuidv7 } from '@gym/db';
 import { authedProcedure, publicProcedure, router } from '../trpc.js';
@@ -90,6 +90,37 @@ export const authRouter = router({
     ctx.clearCookie(SESSION_COOKIE);
     return { ok: true };
   }),
+
+  changePassword: authedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(10).max(200),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const rows = await ctx.bundle.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.user.id))
+        .limit(1);
+      const user = rows[0];
+      if (!user?.passwordHash || !(await verifyPassword(input.currentPassword, user.passwordHash))) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Current password is incorrect' });
+      }
+      await ctx.bundle.db
+        .update(schema.users)
+        .set({ passwordHash: await hashPassword(input.newPassword), updatedAt: new Date().toISOString() })
+        .where(eq(schema.users.id, ctx.user.id));
+
+      // a password change should end sessions on other devices
+      await ctx.bundle.db
+        .delete(schema.sessions)
+        .where(and(eq(schema.sessions.userId, ctx.user.id), ne(schema.sessions.id, ctx.session.id)));
+
+      await ctx.audit('auth.password_change', 'user', ctx.user.id);
+      return { ok: true };
+    }),
 
   switchGym: authedProcedure
     .input(z.object({ gymId: z.string().uuid() }))

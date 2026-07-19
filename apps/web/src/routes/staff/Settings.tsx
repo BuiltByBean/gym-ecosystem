@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errMessage } from '../../api';
 import { useMe } from '../../state/me';
 import { Button, Card, Field, Input, PageHeader, Select, TextArea, toast } from '../../components/ui';
+import { ChangePassword } from '../../components/ChangePassword';
 
 export function Settings() {
   const { me, refresh } = useMe();
@@ -107,6 +108,8 @@ export function Settings() {
             <p className="text-xs text-steel">Fees post to the member's account; collection is front-desk or auto-charge once card-on-file payments are connected.</p>
           </div>
         </Card>
+
+        <ChangePassword />
 
         <Card className="lg:col-span-2">
           <h3 className="mb-3 font-display font-bold">Liability waiver template</h3>

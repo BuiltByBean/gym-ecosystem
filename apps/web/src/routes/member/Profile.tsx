@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errMessage } from '../../api';
 import { useMe } from '../../state/me';
 import { Badge, Button, Card, Field, Input, Modal, Spinner, cx, toast } from '../../components/ui';
+import { ChangePassword } from '../../components/ChangePassword';
 import { dateTime, shortDate } from '../../lib/format';
 
 export function Profile() {
@@ -120,6 +121,8 @@ export function Profile() {
           </ul>
         </Card>
       )}
+
+      <ChangePassword />
 
       <Button variant="quiet" className="w-full" onClick={() => void logout()}>Sign out</Button>
     </div>

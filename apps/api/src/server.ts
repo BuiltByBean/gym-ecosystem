@@ -136,7 +136,10 @@ async function waitForDb(timeoutMs = 60_000): Promise<void> {
 }
 
 if (env.MIGRATE_ON_BOOT) {
-  const applied = await runMigrations(env.DATABASE_ADMIN_URL, (m) => console.log(`[db] ${m}`));
+  const applied = await runMigrations(env.DATABASE_ADMIN_URL, {
+    log: (m) => console.log(`[db] ${m}`),
+    syncRolePassword: true,
+  });
   console.log(applied.length ? `[db] applied ${applied.length} migration(s)` : '[db] schema up to date');
 }
 

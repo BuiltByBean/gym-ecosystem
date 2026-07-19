@@ -41,8 +41,11 @@ async function main() {
   }
 
   const clusterUrl = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`;
-  await ensureDatabase(clusterUrl, 'gym_dev');
-  const applied = await runMigrations(env.DATABASE_ADMIN_URL, (m) => console.log(`[db] ${m}`));
+  await ensureDatabase(clusterUrl, 'gym_dev', { syncRolePassword: true });
+  const applied = await runMigrations(env.DATABASE_ADMIN_URL, {
+    log: (m) => console.log(`[db] ${m}`),
+    syncRolePassword: true,
+  });
   console.log(
     `[db] Postgres ready on :${port} (gym_dev)${applied.length ? `, ${applied.length} migration(s) applied` : ''}`,
   );

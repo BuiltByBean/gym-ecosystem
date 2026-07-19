@@ -1,6 +1,8 @@
 # Gym Ecosystem
 
-Multi-tenant gym operations and training platform. See `docs/` for architecture, data model, roadmap, and decision log; `docs/STATUS.md` for what currently works.
+Multi-tenant gym operations and training platform. See `docs/` for architecture, data model, roadmap, and decision log; `docs/STATUS.md` for what currently works and `docs/DEPLOY.md` for deploying.
+
+Live: https://gym-ecosystem-production.up.railway.app
 
 ## Quick start (development)
 
@@ -28,6 +30,9 @@ Then open http://localhost:5173 and sign in with a demo account (all password `d
 - `npm run typecheck` — all packages
 - `npm run db:migrate` — apply pending migrations (dev server does this on boot)
 - `npm run build` — production build of the web app
+- `npm start` — run the way production does (API + built SPA on one port)
+- `npm run db:seed:platform` — platform exercise library only (safe in production)
+- `npm run gym:create -- --name "Gym" --email owner@gym.com` — provision a real gym + owner
 
 ## Layout
 

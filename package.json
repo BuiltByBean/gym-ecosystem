@@ -15,6 +15,7 @@
     "db:migrate": "tsx packages/db/scripts/migrate-cli.ts",
     "db:seed": "tsx packages/db/scripts/seed-cli.ts",
     "db:seed:platform": "tsx packages/db/scripts/seed-platform-cli.ts",
+    "gym:create": "tsx packages/db/scripts/create-gym-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p packages/sync && tsc --noEmit -p packages/authz && tsc --noEmit -p packages/db && tsc --noEmit -p apps/api && tsc --noEmit -p apps/web",
     "build": "npm run build -w @gym/web"

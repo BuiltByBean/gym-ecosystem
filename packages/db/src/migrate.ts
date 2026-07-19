@@ -14,7 +14,14 @@ export async function ensureDatabase(clusterAdminUrl: string, dbName: string): P
   try {
     const role = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = 'app_rw'`);
     if (role.rowCount === 0) {
-      await client.query(`CREATE ROLE app_rw LOGIN PASSWORD '${env.APP_DB_PASSWORD}'`);
+      try {
+        await client.query(`CREATE ROLE app_rw LOGIN PASSWORD '${env.APP_DB_PASSWORD}'`);
+      } catch (err) {
+        // parallel test suites on a fresh cluster can race this create —
+        // 23505/42710 mean another connection won; that's fine
+        const code = (err as { code?: string }).code;
+        if (code !== '23505' && code !== '42710') throw err;
+      }
     }
     if (!/^[a-z_][a-z0-9_]*$/.test(dbName)) throw new Error(`invalid database name: ${dbName}`);
     const db = await client.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]);

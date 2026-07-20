@@ -8,6 +8,8 @@ Updated 2026-07-19. Working v1 covering roughly Phases 0–6 of [ROADMAP.md](ROA
 
 **People (Phase 1).** Gym profile/branding (live re-theme on brand color change), policies, staff roster + invites, member roster with all five states + members-without-logins + claim flow, versioned waiver signing (doc hash + IP + signer, never a boolean), encrypted PAR-Q screening, member-controlled trainer health grants (default-granted on assignment, revocable in the member app), injury/limitation records feeding substitutions, CSV import with mapper UI + dry-run + per-row errors, front-desk surface with field-level masking.
 
+**Floor plans + wayfinding (added after v1).** Admin floor-plan editor: real-world-scaled canvas, zoom/pan, grid snap, drag-and-drop machine placement, rotate/nudge/delete, labelled colour zones, entrance marker, optional background image to trace an existing plan. Machines carry a footprint, a photo gallery, a how-to video, and setup steps. Members get a gym map with search, "Where is it" inline in the workout player (machine, zone, one tap to a highlighted pin), and a numbered route for the day's exercises. Location resolution prefers an explicit exercise→machine link over a broad equipment-class match and counts units per model.
+
 **Equipment + exercises (Phase 2).** Models/units split with per-unit QR tags (printable sheets), status lifecycle with history, member two-tap issue reporting, maintenance queue, 61-exercise platform library + gym layer with fork, the substitution graph (curated edges + derived pattern-mates) with the ranked, equipment-aware, limitation-aware query, out-of-service trigger → affected programs + notifications, demo video upload → admin review → versioned publish (local media adapter).
 
 **Programs (Phase 3).** Builder (weeks/days/items, four load types, supersets, rest/tempo/RPE, authoring-time alternates, copy-week), draft → publish version freeze, assignment (individual + whole-gym free programs), member consumption with resolved targets (percent-of-max from tested maxes, linear + double progression as data).
@@ -16,7 +18,7 @@ Updated 2026-07-19. Working v1 covering roughly Phases 0–6 of [ROADMAP.md](ROA
 
 **Scheduling + money core (Phases 5–6, core).** Trainer availability templates, slot computation in gym timezone, member self-booking inside availability + staff booking anywhere, DB exclusion-constraint double-booking prevention, completion/no-show with package redemption, late-cancel incidents with configurable fees (posting separated from collection), effective-dated rate cards resolved most-specific and **frozen onto bookings**, packages with append-only ledger, payments via dev provider, front-desk check-in, live BI dashboard (penetration, engagement, revenue, equipment-usage heatmap data, trainer utilization, content performance).
 
-**Tests: 100 passing** — permission matrix (63 + structural sweeps), sync fold/ULID/HLC, cross-tenant isolation (RLS registry sweep + raw probes + 404 API probes), substitution, billing math, booking conflicts, push idempotency, PR detection, progression.
+**Tests: 120 passing** — permission matrix (+ structural sweeps), sync fold/ULID/HLC, cross-tenant isolation (RLS registry sweep + raw probes + 404 API probes), substitution, billing math, booking conflicts, push idempotency, PR detection, progression, and wayfinding (placement, zone naming, link-vs-class resolution, per-model counts, route ordering, equipment media, plan isolation).
 
 ## Stubbed / dev-adapter (interface real, provider pending)
 

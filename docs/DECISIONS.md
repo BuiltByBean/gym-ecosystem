@@ -56,3 +56,9 @@ Ledger, rate freezing, redemption, and incidents are fully real; only the charge
 
 **D-017 — Charts never wear the gym's brand color.**
 Data marks use a fixed, CVD-validated palette (see `apps/web/src/components/charts.tsx`); brand stays on interface accents. A gym can pick any brand hue without breaking chart legibility or series identity — validated with the palette checker rather than eyeballed.
+
+**D-018 — Imported exercises are mapped into the taxonomy, not loaded raw.**
+Rejected: inserting the Personal-Trainer library as (name, category, equipment) with nulls elsewhere. Why: substitution resolves on movement pattern and availability resolves on equipment class, so raw rows would be invisible to the graph, and a null equipment class reads as "no equipment needed" — reporting 200+ exercises as available at every gym. Category supplies a default that the exercise name overrides where the category misleads (deadlifts filed under Back are hinges). Unrecognised machines keep a generic `machine_generic` class rather than degrading to bodyweight. Cardio and mobility deliberately carry no primary muscle so they cannot skew volume-by-muscle analytics. A test asserts every imported row maps to a pattern, class, and muscle the seed actually creates.
+
+**D-019 — Workout adjustments are session-scoped, never program edits.**
+Rejected: the source project's approach of writing the substitute onto the plan row. Why: that made one sore shoulder permanently rewrite the program for every future week, and for every other member assigned to the same program. Adjustments here are returned as suggestions, applied to the running session, and recorded as `substitution` ops in the append-only log — the same mechanism as "the machine is taken". The program version stays immutable, consistent with D-007.

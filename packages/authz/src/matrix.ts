@@ -51,6 +51,9 @@ export const matrix: Record<Action, Row> = {
   'equipment.report_issue':  row('allow', 'allow', 'allow', 'allow', 'allow'),
   'maintenance.read':    row('allow', 'allow', 'allow', 'allow', 'deny'),
   'maintenance.manage':  row('allow', 'allow', 'deny', 'deny', 'deny'),
+  // members need the map to find the machine their program asked for
+  'floorplan.read':      row('allow', 'allow', 'allow', 'allow', 'allow'),
+  'floorplan.manage':    row('allow', 'allow', 'deny', 'deny', 'deny'),
 
   'exercise.read':       row('allow', 'allow', 'allow', 'allow', 'allow'),
   'exercise.manage':     row('allow', 'allow', 'deny', 'deny', 'deny'),

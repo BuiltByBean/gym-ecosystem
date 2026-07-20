@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, date, bigint } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, date, bigint, boolean, numeric } from 'drizzle-orm/pg-core';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' });
 
@@ -21,11 +21,46 @@ export const muscles = pgTable('muscles', {
   region: text('region').notNull(),
 });
 
+export const floorPlans = pgTable('floor_plans', {
+  id: uuid('id').primaryKey(),
+  gymId: uuid('gym_id').notNull(),
+  locationId: uuid('location_id'),
+  name: text('name').notNull(),
+  widthCm: integer('width_cm').notNull().default(3000),
+  heightCm: integer('height_cm').notNull().default(2000),
+  gridCm: integer('grid_cm').notNull().default(50),
+  backgroundMediaId: uuid('background_media_id'),
+  backgroundOpacity: numeric('background_opacity').notNull().default('0.45'),
+  entranceXCm: integer('entrance_x_cm'),
+  entranceYCm: integer('entrance_y_cm'),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const gymZones = pgTable('gym_zones', {
   id: uuid('id').primaryKey(),
   gymId: uuid('gym_id').notNull(),
   locationId: uuid('location_id'),
   name: text('name').notNull(),
+  floorPlanId: uuid('floor_plan_id'),
+  xCm: integer('x_cm'),
+  yCm: integer('y_cm'),
+  widthCm: integer('width_cm'),
+  heightCm: integer('height_cm'),
+  color: text('color').notNull().default('#5B6472'),
+});
+
+export const equipmentMedia = pgTable('equipment_media', {
+  id: uuid('id').primaryKey(),
+  gymId: uuid('gym_id').notNull(),
+  modelId: uuid('model_id').notNull(),
+  mediaId: uuid('media_id').notNull(),
+  kind: text('kind', { enum: ['photo', 'how_to_video'] }).notNull(),
+  caption: text('caption'),
+  orderNo: integer('order_no').notNull().default(1),
+  createdBy: uuid('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 export const equipmentModels = pgTable('equipment_models', {
@@ -37,6 +72,9 @@ export const equipmentModels = pgTable('equipment_models', {
   model: text('model'),
   photoMediaId: uuid('photo_media_id'),
   notes: text('notes'),
+  footprintWCm: integer('footprint_w_cm').notNull().default(120),
+  footprintHCm: integer('footprint_h_cm').notNull().default(180),
+  howTo: text('how_to'),
   archivedAt: ts('archived_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
@@ -62,6 +100,10 @@ export const equipmentUnits = pgTable('equipment_units', {
     .default('in_service'),
   purchasedAt: date('purchased_at', { mode: 'string' }),
   lastServicedAt: date('last_serviced_at', { mode: 'string' }),
+  floorPlanId: uuid('floor_plan_id'),
+  xCm: integer('x_cm'),
+  yCm: integer('y_cm'),
+  rotationDeg: integer('rotation_deg').notNull().default(0),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 

@@ -10,6 +10,7 @@ import { loggingRouter } from './logging.js';
 import { schedulingRouter } from './scheduling.js';
 import { moneyRouter } from './money.js';
 import { biRouter } from './bi.js';
+import { floorPlansRouter } from './floorplans.js';
 
 export const appRouter = router({
   auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   scheduling: schedulingRouter,
   money: moneyRouter,
   bi: biRouter,
+  floorPlans: floorPlansRouter,
 });
 
 export type AppRouter = typeof appRouter;

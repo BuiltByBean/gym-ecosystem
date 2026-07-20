@@ -383,6 +383,8 @@ function ExerciseCard({
             Log set
           </Button>
 
+          <WhereIsIt exerciseId={item.exerciseId} />
+
           <div className="mt-2 grid grid-cols-3 gap-2">
             <Button variant="quiet" size="sm" onClick={() => setShowSubs(true)}>Machine taken?</Button>
             <Button variant="quiet" size="sm" onClick={() => fileRef.current?.click()}>Form check 🎥</Button>
@@ -432,6 +434,33 @@ function ExerciseCard({
         }}
       />
     </Card>
+  );
+}
+
+/** The wayfinding answer, inline where the member is standing: which machine,
+ *  which zone, and one tap to the map. Silent when nothing is placed yet. */
+function WhereIsIt({ exerciseId }: { exerciseId: string }) {
+  const navigate = useNavigate();
+  const located = useQuery({
+    queryKey: ['locate', exerciseId],
+    queryFn: () => api.floorPlans.locate.query({ exerciseId }),
+    enabled: navigator.onLine,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const data = located.data;
+  if (!data || !data.planId) return null;
+  return (
+    <button
+      className="mt-2 flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-left hover:border-brand"
+      onClick={() => navigate(`/me/map?exercise=${exerciseId}`)}
+    >
+      <span className="min-w-0">
+        <span className="block text-xs font-bold uppercase tracking-wide text-steel">Where is it</span>
+        <span className="block truncate text-sm font-semibold">{data.hint}</span>
+      </span>
+      <span className="shrink-0 text-lg" aria-hidden>🗺️</span>
+    </button>
   );
 }
 

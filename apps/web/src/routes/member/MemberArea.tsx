@@ -13,6 +13,7 @@ import { Progress } from './Progress';
 import { Book } from './Book';
 import { Profile } from './Profile';
 import { Machine } from './Machine';
+import { GymMap } from './Map';
 
 export default function MemberArea() {
   const { me, isStaff } = useMe();
@@ -77,6 +78,7 @@ export default function MemberArea() {
           <Route path="book" element={<Book />} />
           <Route path="profile" element={<Profile />} />
           <Route path="machine/:tagCode" element={<Machine />} />
+          <Route path="map" element={<GymMap />} />
           <Route path="*" element={<Navigate to="/me" replace />} />
         </Routes>
       </main>
@@ -84,6 +86,7 @@ export default function MemberArea() {
       <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-lg border-t border-line bg-card pb-[env(safe-area-inset-bottom)]">
         {[
           { to: '/me', label: 'Today', end: true },
+          { to: '/me/map', label: 'Map' },
           { to: '/me/book', label: 'Book' },
           { to: '/me/progress', label: 'Progress' },
           { to: '/me/profile', label: 'You' },

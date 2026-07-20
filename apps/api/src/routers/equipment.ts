@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { schema, uuidv7, uuidArrayLiteral } from '@gym/db';
 import { router, tenantProcedure } from '../trpc.js';
@@ -61,6 +61,8 @@ export const equipmentRouter = router({
         exerciseIds: z.array(z.string().uuid()).max(100).default([]),
         unitCount: z.number().int().min(0).max(50).default(1),
         zoneId: z.string().uuid().nullish(),
+        footprintWCm: z.number().int().min(20).max(1000).default(120),
+        footprintHCm: z.number().int().min(20).max(1000).default(180),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -76,6 +78,8 @@ export const equipmentRouter = router({
           manufacturer: input.manufacturer ?? null,
           model: input.model ?? null,
           notes: input.notes ?? null,
+          footprintWCm: input.footprintWCm,
+          footprintHCm: input.footprintHCm,
         });
         if (input.classIds.length) {
           await tx.insert(schema.equipmentModelClasses).values(
@@ -111,6 +115,9 @@ export const equipmentRouter = router({
         category: z.string().min(1).max(60).optional(),
         manufacturer: z.string().max(120).nullish(),
         notes: z.string().max(2000).nullish(),
+        howTo: z.string().max(4000).nullish(),
+        footprintWCm: z.number().int().min(20).max(1000).optional(),
+        footprintHCm: z.number().int().min(20).max(1000).optional(),
         classIds: z.array(z.string().uuid()).max(10).optional(),
         exerciseIds: z.array(z.string().uuid()).max(100).optional(),
       }),
@@ -397,6 +404,90 @@ export const equipmentRouter = router({
           })
           .where(eq(schema.maintenanceReports.id, input.reportId)),
       );
+      return { ok: true };
+    }),
+
+  // --- machine photos + how-to video (gym-authored during setup) ----------
+
+  media: tenantProcedure
+    .input(z.object({ modelId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await ctx.allow('equipment.read');
+      return ctx.tenant((tx) =>
+        tx
+          .select()
+          .from(schema.equipmentMedia)
+          .where(and(eq(schema.equipmentMedia.gymId, ctx.gym.id), eq(schema.equipmentMedia.modelId, input.modelId)))
+          .orderBy(asc(schema.equipmentMedia.orderNo), asc(schema.equipmentMedia.createdAt)),
+      );
+    }),
+
+  mediaAdd: tenantProcedure
+    .input(
+      z.object({
+        modelId: z.string().uuid(),
+        mediaId: z.string().uuid(),
+        kind: z.enum(['photo', 'how_to_video']),
+        caption: z.string().max(300).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.allow('equipment.manage');
+      const id = uuidv7();
+      await ctx.tenant(async (tx) => {
+        const existing = await tx
+          .select({ orderNo: schema.equipmentMedia.orderNo })
+          .from(schema.equipmentMedia)
+          .where(eq(schema.equipmentMedia.modelId, input.modelId));
+        await tx.insert(schema.equipmentMedia).values({
+          id,
+          gymId: ctx.gym.id,
+          modelId: input.modelId,
+          mediaId: input.mediaId,
+          kind: input.kind,
+          caption: input.caption ?? null,
+          orderNo: Math.max(0, ...existing.map((e) => e.orderNo)) + 1,
+          createdBy: ctx.user.id,
+        });
+        // first photo doubles as the model's thumbnail
+        if (input.kind === 'photo') {
+          await tx
+            .update(schema.equipmentModels)
+            .set({ photoMediaId: input.mediaId })
+            .where(and(eq(schema.equipmentModels.id, input.modelId), isNull(schema.equipmentModels.photoMediaId)));
+        }
+      });
+      return { id };
+    }),
+
+  mediaRemove: tenantProcedure
+    .input(z.object({ mediaRowId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.allow('equipment.manage');
+      await ctx.tenant(async (tx) => {
+        const rows = await tx
+          .delete(schema.equipmentMedia)
+          .where(and(eq(schema.equipmentMedia.id, input.mediaRowId), eq(schema.equipmentMedia.gymId, ctx.gym.id)))
+          .returning({ modelId: schema.equipmentMedia.modelId, mediaId: schema.equipmentMedia.mediaId });
+        const removed = rows[0];
+        if (!removed) throw new TRPCError({ code: 'NOT_FOUND' });
+        // if that was the thumbnail, fall back to the next remaining photo
+        const remaining = await tx
+          .select({ mediaId: schema.equipmentMedia.mediaId })
+          .from(schema.equipmentMedia)
+          .where(and(eq(schema.equipmentMedia.modelId, removed.modelId), eq(schema.equipmentMedia.kind, 'photo')))
+          .orderBy(asc(schema.equipmentMedia.orderNo))
+          .limit(1);
+        await tx
+          .update(schema.equipmentModels)
+          .set({ photoMediaId: remaining[0]?.mediaId ?? null })
+          .where(
+            and(
+              eq(schema.equipmentModels.id, removed.modelId),
+              eq(schema.equipmentModels.photoMediaId, removed.mediaId),
+            ),
+          );
+      });
       return { ok: true };
     }),
 

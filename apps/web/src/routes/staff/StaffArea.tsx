@@ -8,6 +8,7 @@ import { MemberDetail } from './MemberDetail';
 import { ImportMembers } from './Import';
 import { StaffRoster } from './Staff';
 import { Equipment } from './Equipment';
+import { FloorPlanEditor } from './FloorPlan';
 import { Exercises } from './Exercises';
 import { ExerciseDetail } from './ExerciseDetail';
 import { Programs } from './Programs';
@@ -37,6 +38,7 @@ export default function StaffArea() {
     { to: '/staff/programs', label: 'Programs', show: isAdminish || isTrainer },
     { to: '/staff/exercises', label: 'Exercises', show: isAdminish || isTrainer },
     { to: '/staff/equipment', label: 'Equipment', show: true },
+    { to: '/staff/floor-plan', label: 'Floor plan', show: isAdminish },
     { to: '/staff/reviews', label: 'Reviews', show: isAdminish || isTrainer },
     { to: '/staff/money', label: 'Money', show: isAdminish },
     { to: '/staff/staff', label: 'Staff', show: isAdminish },
@@ -104,6 +106,7 @@ export default function StaffArea() {
             <Route path="import" element={<ImportMembers />} />
             <Route path="staff" element={<StaffRoster />} />
             <Route path="equipment" element={<Equipment />} />
+            <Route path="floor-plan" element={<FloorPlanEditor />} />
             <Route path="exercises" element={<Exercises />} />
             <Route path="exercises/:exerciseId" element={<ExerciseDetail />} />
             <Route path="programs" element={<Programs />} />

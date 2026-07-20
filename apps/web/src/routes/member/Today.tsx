@@ -4,11 +4,67 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Outputs } from '../../api';
 import { useMe } from '../../state/me';
 import { Badge, Button, Card, Spinner } from '../../components/ui';
+import { FloorMap, type MapUnit } from '../../components/FloorMap';
 import { db } from '../../offline/db';
 import { activeSession, startSession } from '../../offline/workout';
 import type { LocalSession } from '../../offline/db';
 
 type Plan = Outputs['programs']['todayPlan'];
+
+/** Numbered stops on the gym map for the day's exercises — so a member walks
+ *  in knowing where they're going instead of hunting for machines. */
+function RouteForToday({ programVersionId, dayId }: { programVersionId: string; dayId: string }) {
+  const [open, setOpen] = useState(false);
+  const route = useQuery({
+    queryKey: ['workoutRoute', programVersionId, dayId],
+    queryFn: () => api.floorPlans.workoutRoute.query({ programVersionId, dayId }),
+    retry: false,
+  });
+  const data = route.data;
+  const placed = (data?.stops ?? []).filter((s) => s.units.length > 0);
+  if (!data?.plan || placed.length === 0) return null;
+
+  const highlights = placed.map((s, i) => ({ unitId: s.units[0]!.unitId, step: i + 1 }));
+
+  return (
+    <div className="mt-3">
+      <button
+        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-left hover:border-brand"
+        onClick={() => setOpen(!open)}
+      >
+        <span>
+          <span className="block text-xs font-bold uppercase tracking-wide text-steel">Your route today</span>
+          <span className="block text-sm font-semibold">{placed.length} stops on the gym map</span>
+        </span>
+        <span>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <FloorMap
+            plan={data.plan.plan}
+            zones={data.plan.zones}
+            units={data.plan.placed as MapUnit[]}
+            highlights={highlights}
+            fitHeight={300}
+          />
+          <ol className="space-y-1">
+            {placed.map((s, i) => (
+              <li key={s.exerciseId} className="flex items-center gap-2 text-sm">
+                <span className="score flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs text-brand-ink">
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="font-semibold">{s.exerciseName}</span>
+                  <span className="block truncate text-xs text-steel">{s.hint}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Today() {
   const { me } = useMe();
@@ -125,6 +181,11 @@ export function Today() {
               </li>
             ))}
           </ul>
+          <RouteForToday
+            programVersionId={firstAssignment!.programVersionId}
+            dayId={plan.data.day.id}
+          />
+
           <Button size="lg" className="mt-4 w-full" onClick={() => void startProgramDay(plan.data!)}>
             Start workout
           </Button>

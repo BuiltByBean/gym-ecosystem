@@ -36,7 +36,13 @@ export async function seedDemo(): Promise<void> {
 
     // --- people -----------------------------------------------------------
     const pw = await hashPassword(PW);
+    // users are global, so a re-seed after the gym was dropped must reuse them
     async function user(email: string, displayName: string): Promise<string> {
+      const existing = await d.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, email)).limit(1);
+      if (existing[0]) {
+        await d.update(schema.users).set({ passwordHash: pw, displayName }).where(eq(schema.users.id, existing[0].id));
+        return existing[0].id;
+      }
       const id = uuidv7();
       await d.insert(schema.users).values({ id, email, displayName, passwordHash: pw });
       return id;
@@ -134,33 +140,52 @@ export async function seedDemo(): Promise<void> {
     const exercises = new Map(
       (await d.select().from(schema.exercises)).filter((e) => e.gymId === null).map((e) => [e.name, e.id]),
     );
+    // Floor plan: 24m x 16m, three zones, machines placed where they'd really be.
+    const planId = uuidv7();
+    await d.insert(schema.floorPlans).values({
+      id: planId, gymId, locationId, name: 'Main Floor',
+      widthCm: 2400, heightCm: 1600, gridCm: 50,
+      entranceXCm: 200, entranceYCm: 1550, isDefault: true,
+    });
+
+    const ZONES: [name: string, x: number, y: number, w: number, h: number, color: string][] = [
+      ['Free Weights', 100, 100, 1000, 700, '#2a78d6'],
+      ['Machines', 1250, 100, 1050, 700, '#1baf7a'],
+      ['Turf & Conditioning', 100, 900, 2200, 600, '#eda100'],
+    ];
     const zones: Record<string, string> = {};
-    for (const name of ['Free Weights', 'Machines', 'Turf & Conditioning']) {
+    for (const [name, x, y, w, h, color] of ZONES) {
       const id = uuidv7();
       zones[name] = id;
-      await d.insert(schema.gymZones).values({ id, gymId, locationId, name });
+      await d.insert(schema.gymZones).values({
+        id, gymId, locationId, name,
+        floorPlanId: planId, xCm: x, yCm: y, widthCm: w, heightCm: h, color,
+      });
     }
 
     interface ModelSpec {
       name: string; category: string; zone: string; units: number;
       classes: string[]; exercises: string[]; manufacturer?: string;
+      /** footprint in cm and where each unit sits on the plan */
+      size?: [w: number, h: number];
+      spots?: [x: number, y: number, rot: number][];
     }
     const MODELS: ModelSpec[] = [
-      { name: 'Power Rack', category: 'strength', zone: 'Free Weights', units: 3, manufacturer: 'Rogue', classes: ['barbell_rack', 'barbell', 'pullup_bar'], exercises: ['Back Squat', 'Front Squat', 'Overhead Press', 'Barbell Row', 'Pull-Up', 'Chin-Up', 'Inverted Row'] },
-      { name: 'Bench Press Station', category: 'strength', zone: 'Free Weights', units: 2, manufacturer: 'Rogue', classes: ['bench_station', 'barbell'], exercises: ['Bench Press'] },
-      { name: 'Deadlift Platform', category: 'strength', zone: 'Free Weights', units: 2, classes: ['barbell', 'trap_bar'], exercises: ['Deadlift', 'Romanian Deadlift', 'Trap Bar Deadlift', 'Hip Thrust'] },
-      { name: 'Dumbbell Rack 5–100', category: 'free_weights', zone: 'Free Weights', units: 1, classes: ['dumbbell'], exercises: ['Dumbbell Bench Press', 'Incline Dumbbell Press', 'Dumbbell Row', 'Goblet Squat', 'Walking Lunge', 'Biceps Curl', 'Lateral Raise'] },
-      { name: 'Kettlebell Set', category: 'free_weights', zone: 'Turf & Conditioning', units: 1, classes: ['kettlebell'], exercises: ['Kettlebell Swing', 'Suitcase Carry'] },
-      { name: 'Cable Crossover', category: 'machine', zone: 'Machines', units: 2, manufacturer: 'Hammer Strength', classes: ['cable_stack'], exercises: ['Cable Fly', 'Face Pull', 'Triceps Pushdown', 'Cable Curl', 'Pallof Press', 'Cable Crunch', 'Cable Woodchop', 'Straight-Arm Pulldown'] },
-      { name: 'Lat Pulldown', category: 'machine', zone: 'Machines', units: 1, classes: ['lat_pulldown_machine'], exercises: ['Lat Pulldown'] },
-      { name: 'Seated Row', category: 'machine', zone: 'Machines', units: 1, classes: ['seated_row_machine'], exercises: ['Seated Cable Row'] },
-      { name: 'Leg Press 45°', category: 'machine', zone: 'Machines', units: 1, manufacturer: 'Hammer Strength', classes: ['leg_press_machine'], exercises: ['Leg Press'] },
-      { name: 'Leg Curl', category: 'machine', zone: 'Machines', units: 1, classes: ['leg_curl_machine'], exercises: ['Lying Leg Curl'] },
-      { name: 'Leg Extension', category: 'machine', zone: 'Machines', units: 1, classes: ['leg_extension_machine'], exercises: ['Leg Extension'] },
-      { name: 'Smith Machine', category: 'machine', zone: 'Machines', units: 1, classes: ['smith_machine'], exercises: ['Smith Machine Squat'] },
-      { name: 'Concept2 Rower', category: 'cardio', zone: 'Turf & Conditioning', units: 2, manufacturer: 'Concept2', classes: ['rower'], exercises: ['Rowing Intervals'] },
-      { name: 'Assault Bike', category: 'cardio', zone: 'Turf & Conditioning', units: 2, classes: ['bike'], exercises: ['Bike Sprints'] },
-      { name: 'Treadmill', category: 'cardio', zone: 'Turf & Conditioning', units: 4, manufacturer: 'Woodway', classes: ['treadmill'], exercises: ['Incline Treadmill Walk'] },
+      { name: 'Power Rack', category: 'strength', zone: 'Free Weights', units: 3, manufacturer: 'Rogue', classes: ['barbell_rack', 'barbell', 'pullup_bar'], exercises: ['Back Squat', 'Front Squat', 'Overhead Press', 'Barbell Row', 'Pull-Up', 'Chin-Up', 'Inverted Row'], size: [180, 180], spots: [[250, 250, 0], [500, 250, 0], [750, 250, 0]] },
+      { name: 'Bench Press Station', category: 'strength', zone: 'Free Weights', units: 2, manufacturer: 'Rogue', classes: ['bench_station', 'barbell'], exercises: ['Bench Press'], size: [160, 220], spots: [[250, 600, 0], [520, 600, 0]] },
+      { name: 'Deadlift Platform', category: 'strength', zone: 'Free Weights', units: 2, classes: ['barbell', 'trap_bar'], exercises: ['Deadlift', 'Romanian Deadlift', 'Trap Bar Deadlift', 'Hip Thrust'], size: [240, 180], spots: [[880, 600, 0], [880, 300, 0]] },
+      { name: 'Dumbbell Rack 5–100', category: 'free_weights', zone: 'Free Weights', units: 1, classes: ['dumbbell'], exercises: ['Dumbbell Bench Press', 'Incline Dumbbell Press', 'Dumbbell Row', 'Goblet Squat', 'Walking Lunge', 'Biceps Curl', 'Lateral Raise'], size: [500, 80], spots: [[550, 130, 0]] },
+      { name: 'Kettlebell Set', category: 'free_weights', zone: 'Turf & Conditioning', units: 1, classes: ['kettlebell'], exercises: ['Kettlebell Swing', 'Suitcase Carry'], size: [200, 70], spots: [[300, 1450, 0]] },
+      { name: 'Cable Crossover', category: 'machine', zone: 'Machines', units: 2, manufacturer: 'Hammer Strength', classes: ['cable_stack'], exercises: ['Cable Fly', 'Face Pull', 'Triceps Pushdown', 'Cable Curl', 'Pallof Press', 'Cable Crunch', 'Cable Woodchop', 'Straight-Arm Pulldown'], size: [300, 150], spots: [[1500, 200, 0], [1500, 420, 0]] },
+      { name: 'Lat Pulldown', category: 'machine', zone: 'Machines', units: 1, classes: ['lat_pulldown_machine'], exercises: ['Lat Pulldown'], size: [130, 180], spots: [[1900, 200, 0]] },
+      { name: 'Seated Row', category: 'machine', zone: 'Machines', units: 1, classes: ['seated_row_machine'], exercises: ['Seated Cable Row'], size: [130, 200], spots: [[2120, 200, 0]] },
+      { name: 'Leg Press 45°', category: 'machine', zone: 'Machines', units: 1, manufacturer: 'Hammer Strength', classes: ['leg_press_machine'], exercises: ['Leg Press'], size: [200, 250], spots: [[1950, 620, 0]] },
+      { name: 'Leg Curl', category: 'machine', zone: 'Machines', units: 1, classes: ['leg_curl_machine'], exercises: ['Lying Leg Curl'], size: [120, 190], spots: [[1400, 660, 0]] },
+      { name: 'Leg Extension', category: 'machine', zone: 'Machines', units: 1, classes: ['leg_extension_machine'], exercises: ['Leg Extension'], size: [120, 190], spots: [[1600, 660, 0]] },
+      { name: 'Smith Machine', category: 'machine', zone: 'Machines', units: 1, classes: ['smith_machine'], exercises: ['Smith Machine Squat'], size: [180, 170], spots: [[2180, 500, 0]] },
+      { name: 'Concept2 Rower', category: 'cardio', zone: 'Turf & Conditioning', units: 2, manufacturer: 'Concept2', classes: ['rower'], exercises: ['Rowing Intervals'], size: [90, 250], spots: [[1500, 1150, 0], [1620, 1150, 0]] },
+      { name: 'Assault Bike', category: 'cardio', zone: 'Turf & Conditioning', units: 2, classes: ['bike'], exercises: ['Bike Sprints'], size: [90, 140], spots: [[1800, 1120, 0], [1920, 1120, 0]] },
+      { name: 'Treadmill', category: 'cardio', zone: 'Turf & Conditioning', units: 4, manufacturer: 'Woodway', classes: ['treadmill'], exercises: ['Incline Treadmill Walk'], size: [100, 200], spots: [[2100, 1150, 0], [2220, 1150, 0], [2100, 1400, 0], [2220, 1400, 0]] },
     ];
     let tagN = 0;
     const unitIds: Record<string, string[]> = {};
@@ -168,6 +193,11 @@ export async function seedDemo(): Promise<void> {
       const modelId = uuidv7();
       await d.insert(schema.equipmentModels).values({
         id: modelId, gymId, name: spec.name, category: spec.category, manufacturer: spec.manufacturer ?? null,
+        footprintWCm: spec.size?.[0] ?? 120,
+        footprintHCm: spec.size?.[1] ?? 180,
+        howTo: spec.category === 'machine'
+          ? 'Set the seat so the pad meets the joint\nMove through the full range, no bouncing\nWipe it down when you finish'
+          : null,
       });
       for (const c of spec.classes) {
         await d.insert(schema.equipmentModelClasses).values({ id: uuidv7(), gymId, modelId, classId: classes.get(c)! });
@@ -181,9 +211,13 @@ export async function seedDemo(): Promise<void> {
         const unitId = uuidv7();
         unitIds[spec.name]!.push(unitId);
         tagN++;
+        const spot = spec.spots?.[u];
         await d.insert(schema.equipmentUnits).values({
           id: unitId, gymId, modelId, tagCode: `EQ-${String(tagN).padStart(3, '0')}`,
           zoneId: zones[spec.zone]!, purchasedAt: dateOnly(today.getTime() - 400 * day),
+          ...(spot
+            ? { floorPlanId: planId, xCm: spot[0], yCm: spot[1], rotationDeg: spot[2] }
+            : {}),
         });
       }
     }

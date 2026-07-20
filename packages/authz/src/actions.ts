@@ -35,6 +35,9 @@ export const ALL_ACTIONS = [
   'equipment.report_issue',
   'maintenance.read',
   'maintenance.manage',
+  // floor plan + wayfinding
+  'floorplan.read',
+  'floorplan.manage',
   // exercise library + media
   'exercise.read',
   'exercise.manage',

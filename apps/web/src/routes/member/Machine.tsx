@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, errMessage, mediaUrl } from '../../api';
 import { useMe } from '../../state/me';
 import { Badge, Button, Card, Modal, Spinner, TextArea, toast } from '../../components/ui';
+import { EquipmentMediaViewer } from '../../components/EquipmentMedia';
 import { activeSession, startSession } from '../../offline/workout';
 
 /** QR landing: scan a machine's tag → its exercises, demo videos, and a
@@ -58,6 +59,14 @@ export function Machine() {
           {openReports > 0 && <Badge tone="alarm">{openReports} open report{openReports > 1 ? 's' : ''}</Badge>}
         </div>
       </div>
+
+      {model && <EquipmentMediaViewer modelId={model.id} howTo={model.howTo} />}
+
+      {unit.floorPlanId && (
+        <Button variant="ghost" className="w-full" onClick={() => navigate('/me/map')}>
+          🗺️ Show this on the gym map
+        </Button>
+      )}
 
       {unit.status !== 'in_service' && (
         <Card className="border-alarm/50">

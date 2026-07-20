@@ -115,6 +115,11 @@ const cases: [keyof typeof actors, Action, Resource, boolean][] = [
   ['member', 'ledger.read', selfMemberRes, true],
   ['member', 'ledger.read', otherMemberRes, false],
   ['member', 'equipment.report_issue', {} as Resource, true],
+  ['member', 'floorplan.read', {} as Resource, true],
+  ['member', 'floorplan.manage', {} as Resource, false],
+  ['front_desk', 'floorplan.read', {} as Resource, true],
+  ['front_desk', 'floorplan.manage', {} as Resource, false],
+  ['trainer', 'floorplan.manage', {} as Resource, false],
   ['member', 'exercise.read', {} as Resource, true],
   ['member', 'program.read_assigned', selfMemberRes, true],
   ['member', 'program.read_assigned', otherMemberRes, false],
@@ -177,7 +182,7 @@ describe('structural sweeps', () => {
     // public-content set; everything else must deny against a foreign member resource.
     const publicSet = new Set<Action>([
       'gym.read', 'equipment.read', 'equipment.report_issue', 'exercise.read',
-      'video.read', 'availability.read', 'notification.read',
+      'video.read', 'availability.read', 'notification.read', 'floorplan.read',
     ]);
     for (const action of ALL_ACTIONS) {
       const memberRule = matrix[action].member;

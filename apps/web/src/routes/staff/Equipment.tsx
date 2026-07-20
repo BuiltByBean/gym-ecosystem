@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { api, errMessage, type Outputs } from '../../api';
 import { useMe } from '../../state/me';
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, Tabs, TextArea, toast, cx } from '../../components/ui';
+import { EquipmentMediaManager } from '../../components/EquipmentMedia';
 import { dateTime } from '../../lib/format';
 
 type Model = Outputs['equipment']['models'][number];
@@ -39,6 +40,7 @@ function Inventory() {
   const models = useQuery({ queryKey: ['equipment'], queryFn: () => api.equipment.models.query() });
   const [showCreate, setShowCreate] = useState(false);
   const [qrModel, setQrModel] = useState<Model | null>(null);
+  const [mediaModel, setMediaModel] = useState<string | null>(null);
 
   const setStatus = useMutation({
     mutationFn: (v: { unitId: string; status: 'in_service' | 'maintenance' | 'out_of_service' | 'retired' }) =>
@@ -90,6 +92,17 @@ function Inventory() {
                   )}
                 </div>
               </div>
+              {isAdminish && (
+                <div className="mb-3 border-b border-line pb-3">
+                  <button
+                    className="mb-2 text-xs font-bold uppercase tracking-wide text-brand"
+                    onClick={() => setMediaModel(mediaModel === m.id ? null : m.id)}
+                  >
+                    {mediaModel === m.id ? '▴ Hide photos & how-to' : '▾ Photos & how-to video'}
+                  </button>
+                  {mediaModel === m.id && <EquipmentMediaManager modelId={m.id} howTo={m.howTo} />}
+                </div>
+              )}
               <ul className="space-y-1.5">
                 {m.units.map((u) => (
                   <li key={u.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2">
@@ -124,7 +137,14 @@ function CreateModel({ open, onClose }: { open: boolean; onClose: () => void }) 
   const qc = useQueryClient();
   const classes = useQuery({ queryKey: ['equipmentClasses'], queryFn: () => api.equipment.classes.query() });
   const exercises = useQuery({ queryKey: ['exercises', '', ''], queryFn: () => api.exercises.list.query({}) });
-  const [form, setForm] = useState({ name: '', category: 'machine', manufacturer: '', unitCount: 1 });
+  const [form, setForm] = useState({
+    name: '',
+    category: 'machine',
+    manufacturer: '',
+    unitCount: 1,
+    footprintWCm: 120,
+    footprintHCm: 180,
+  });
   const [classIds, setClassIds] = useState<string[]>([]);
   const [exerciseIds, setExerciseIds] = useState<string[]>([]);
   const [exSearch, setExSearch] = useState('');
@@ -136,14 +156,17 @@ function CreateModel({ open, onClose }: { open: boolean; onClose: () => void }) 
         category: form.category,
         manufacturer: form.manufacturer || null,
         unitCount: form.unitCount,
+        footprintWCm: form.footprintWCm,
+        footprintHCm: form.footprintHCm,
         classIds,
         exerciseIds,
       }),
     onSuccess: () => {
       toast('Equipment added');
       qc.invalidateQueries({ queryKey: ['equipment'] });
+      qc.invalidateQueries({ queryKey: ['unplacedUnits'] });
       onClose();
-      setForm({ name: '', category: 'machine', manufacturer: '', unitCount: 1 });
+      setForm({ name: '', category: 'machine', manufacturer: '', unitCount: 1, footprintWCm: 120, footprintHCm: 180 });
       setClassIds([]);
       setExerciseIds([]);
     },
@@ -172,6 +195,12 @@ function CreateModel({ open, onClose }: { open: boolean; onClose: () => void }) 
           </Field>
           <Field label="Manufacturer"><Input value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} /></Field>
           <Field label="How many units?"><Input type="number" min={0} max={50} value={form.unitCount} onChange={(e) => setForm({ ...form, unitCount: Number(e.target.value) })} /></Field>
+          <Field label="Footprint width (cm)" hint="Roughly, for the floor plan.">
+            <Input type="number" min={20} max={1000} step={10} value={form.footprintWCm} onChange={(e) => setForm({ ...form, footprintWCm: Number(e.target.value) })} />
+          </Field>
+          <Field label="Footprint depth (cm)">
+            <Input type="number" min={20} max={1000} step={10} value={form.footprintHCm} onChange={(e) => setForm({ ...form, footprintHCm: Number(e.target.value) })} />
+          </Field>
         </div>
         <Field label="Satisfies equipment classes" hint="Any exercise needing one of these classes becomes available.">
           <div className="flex flex-wrap gap-1.5">

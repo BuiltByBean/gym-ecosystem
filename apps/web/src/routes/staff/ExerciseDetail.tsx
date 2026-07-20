@@ -84,6 +84,20 @@ export function ExerciseDetail() {
           <h3 className="mb-2 font-display font-bold">Demo video</h3>
           {e.currentVideoMediaId ? (
             <video controls playsInline className="w-full rounded-lg bg-ink" src={mediaUrl(e.currentVideoMediaId)} />
+          ) : e.externalVideoUrl ? (
+            <div>
+              <a
+                href={e.externalVideoUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-semibold text-brand underline"
+              >
+                Watch the linked demo ↗
+              </a>
+              <p className="mt-1 text-xs text-steel">
+                An external link stands in until your gym films this on its own equipment.
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-steel">
               No published demo yet.{' '}

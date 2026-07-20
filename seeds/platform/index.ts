@@ -2,6 +2,8 @@
  * default progression rules, PAR-Q + waiver templates. Idempotent (keyed on
  * stable names); safe to re-run. Runs on the OWNER connection. */
 import { createDb, env, schema, uuidv7 } from '@gym/db';
+import { IMPORTED_EXERCISES } from './imported-exercises.js';
+import { mapExercise } from './mapping.js';
 
 type Ex = [name: string, pattern: string, cls: string | null, difficulty: number, primary: string[], secondary: string[], cues: string[]];
 
@@ -11,6 +13,7 @@ const PATTERNS: [string, string][] = [
   ['horizontal_pull', 'Horizontal Pull'], ['vertical_pull', 'Vertical Pull'],
   ['carry', 'Carry'], ['core', 'Core'], ['rotation', 'Rotation'],
   ['isolation', 'Isolation'], ['conditioning', 'Conditioning'],
+  ['mobility', 'Mobility'], ['plyometric', 'Plyometric'], ['olympic', 'Olympic Lift'],
 ];
 
 const MUSCLES: [string, string, string][] = [
@@ -32,6 +35,17 @@ const CLASSES: [string, string][] = [
   ['shoulder_press_machine', 'Shoulder Press Machine'], ['pullup_bar', 'Pull-Up Bar'],
   ['dip_station', 'Dip Station'], ['smith_machine', 'Smith Machine'], ['trap_bar', 'Trap Bar'],
   ['rower', 'Rowing Machine'], ['bike', 'Stationary Bike'], ['treadmill', 'Treadmill'],
+  // classes needed by the imported library
+  ['pec_deck_machine', 'Pec Deck / Rear Delt Machine'], ['hack_squat_machine', 'Hack Squat Machine'],
+  ['calf_raise_machine', 'Calf Raise Machine'], ['elliptical', 'Elliptical'],
+  ['stair_climber', 'Stair Climber'], ['ghd', 'Glute-Ham Developer'],
+  ['preacher_bench', 'Preacher Curl Bench'], ['hyperextension_bench', 'Back Extension Bench'],
+  ['resistance_band', 'Resistance Bands'], ['weight_plate', 'Weight Plates'],
+  ['ab_wheel', 'Ab Wheel'], ['medicine_ball', 'Medicine Ball'],
+  ['foam_roller', 'Foam Roller'], ['lacrosse_ball', 'Lacrosse / Massage Ball'],
+  ['battle_rope', 'Battle Ropes'], ['sandbag', 'Sandbag'],
+  ['atlas_stone', 'Atlas Stone'], ['tire', 'Tire'],
+  ['machine_generic', 'Selectorised Machine (unspecified)'],
 ];
 
 const EXERCISES: Ex[] = [
@@ -252,6 +266,41 @@ export async function seedPlatform(): Promise<void> {
       }
     }
 
+    // Imported library: the curated entries above stay authoritative (they carry
+    // hand-written cues and graph edges), so a name collision keeps the original.
+    let imported = 0;
+    for (const [name, category, equipment] of IMPORTED_EXERCISES) {
+      if (existingEx.has(name)) continue;
+      const m = mapExercise(name, category, equipment);
+      const patternId = have.patterns.get(m.pattern);
+      if (!patternId) throw new Error(`unmapped movement pattern "${m.pattern}" for ${name}`);
+      const classId = m.equipmentClass ? have.classes.get(m.equipmentClass) : null;
+      if (m.equipmentClass && !classId) throw new Error(`unmapped equipment class "${m.equipmentClass}" for ${name}`);
+
+      const id = uuidv7();
+      await d.insert(schema.exercises).values({
+        id,
+        gymId: null,
+        name,
+        movementPatternId: patternId,
+        equipmentClassId: classId ?? null,
+        difficulty: m.difficulty,
+        cues: [],
+      });
+      existingEx.set(name, id);
+      imported++;
+
+      const muscleRows = [
+        ...m.primary.map((k) => ({ muscleId: have.muscles.get(k), role: 'primary' as const })),
+        ...m.secondary.map((k) => ({ muscleId: have.muscles.get(k), role: 'secondary' as const })),
+      ].filter((r): r is { muscleId: string; role: 'primary' | 'secondary' } => Boolean(r.muscleId));
+      if (muscleRows.length) {
+        await d.insert(schema.exerciseMuscles).values(
+          muscleRows.map((r) => ({ id: uuidv7(), gymId: null, exerciseId: id, ...r })),
+        );
+      }
+    }
+
     const existingEdges = new Set(
       (await d.select().from(schema.exerciseRelationships))
         .filter((e) => e.gymId === null)
@@ -298,7 +347,9 @@ export async function seedPlatform(): Promise<void> {
       });
     }
 
-    console.log(`[seed] platform: ${existingEx.size} exercises, ${existingEdges.size} edges`);
+    console.log(
+      `[seed] platform: ${existingEx.size} exercises (${imported} imported this run), ${existingEdges.size} edges`,
+    );
   } finally {
     await bundle.end();
   }

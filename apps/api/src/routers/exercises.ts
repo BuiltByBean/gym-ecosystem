@@ -185,6 +185,7 @@ export const exercisesRouter = router({
         equipmentClassId: z.string().uuid().nullish(),
         difficulty: z.number().int().min(1).max(5).optional(),
         cues: z.array(z.string().max(300)).max(10).optional(),
+        externalVideoUrl: z.string().url().max(500).nullish(),
         archived: z.boolean().optional(),
       }),
     )

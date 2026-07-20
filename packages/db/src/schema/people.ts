@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, integer, boolean, date } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, integer, boolean, date, numeric } from 'drizzle-orm/pg-core';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' });
 
@@ -44,6 +44,24 @@ export interface ScreeningQuestion {
   text: string;
   flagOnYes: boolean;
 }
+
+export const memberHealthProfiles = pgTable('member_health_profiles', {
+  id: uuid('id').primaryKey(),
+  gymId: uuid('gym_id').notNull(),
+  memberId: uuid('member_id').notNull(),
+  trainingExperience: text('training_experience', {
+    enum: ['beginner', 'intermediate', 'advanced', 'athlete'],
+  }),
+  physicianClearance: boolean('physician_clearance').notNull().default(false),
+  heightCm: numeric('height_cm'),
+  medicalHistoryEnc: text('medical_history_enc'),
+  medicationsEnc: text('medications_enc'),
+  surgicalHistoryEnc: text('surgical_history_enc'),
+  physicalLimitationsEnc: text('physical_limitations_enc'),
+  updatedBy: uuid('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
 
 export const healthScreeningTemplates = pgTable('health_screening_templates', {
   id: uuid('id').primaryKey(),

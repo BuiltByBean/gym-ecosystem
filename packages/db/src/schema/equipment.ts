@@ -141,6 +141,7 @@ export const exercises = pgTable('exercises', {
   difficulty: integer('difficulty').notNull().default(2),
   cues: text('cues').array().notNull().default([]),
   videoGroupId: uuid('video_group_id'),
+  externalVideoUrl: text('external_video_url'),
   forkedFrom: uuid('forked_from'),
   archivedAt: ts('archived_at'),
   createdBy: uuid('created_by'),

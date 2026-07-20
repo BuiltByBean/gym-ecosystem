@@ -11,6 +11,12 @@ import {
   writeVersionTree,
   type BlockInput,
 } from '../services/programs.js';
+import { BODY_AREA_MUSCLES, suggestAdjustments } from '../services/adjust.js';
+
+/** Body areas a member can flag, in the order they read naturally head-to-toe. */
+const BODY_AREAS = ['neck', 'shoulder', 'elbow', 'wrist', 'back', 'hip', 'knee', 'ankle'].filter(
+  (a) => a in BODY_AREA_MUSCLES,
+);
 
 const loadSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('absolute'), value: z.number().positive(), unit: z.enum(['lb', 'kg']) }),
@@ -540,6 +546,75 @@ export const programsRouter = router({
           allDays: allDays.map((d) => ({ id: d.id, name: d.name, weekNo: d.weekNo, dayNo: d.dayNo, completed: doneDayIds.has(d.id) })),
           items,
         };
+      });
+    }),
+
+  /** Muscles and machines this day actually uses — the options a member picks
+   *  from when saying what's bothering them. */
+  adjustOptions: tenantProcedure
+    .input(z.object({ programVersionId: z.string().uuid(), dayId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await ctx.allow('program.read_assigned', { type: 'program', memberId: ctx.actor.memberId });
+      return ctx.tenant(async (tx) => {
+        const blocks = await readVersionTree(tx, input.programVersionId);
+        const day = blocks.flatMap((b) => b.weeks.flatMap((w) => w.days)).find((d) => d.id === input.dayId);
+        if (!day) throw new TRPCError({ code: 'NOT_FOUND' });
+        const exerciseIds = [...new Set(day.items.map((i) => i.exerciseId))];
+        if (exerciseIds.length === 0) return { muscles: [], equipment: [], bodyAreas: BODY_AREAS };
+
+        const muscles = await tx
+          .selectDistinct({ key: schema.muscles.key, name: schema.muscles.name })
+          .from(schema.exerciseMuscles)
+          .innerJoin(schema.muscles, eq(schema.muscles.id, schema.exerciseMuscles.muscleId))
+          .where(
+            and(
+              inArray(schema.exerciseMuscles.exerciseId, exerciseIds),
+              eq(schema.exerciseMuscles.role, 'primary'),
+            ),
+          );
+
+        const equipment = await tx
+          .selectDistinct({ modelId: schema.equipmentModels.id, name: schema.equipmentModels.name })
+          .from(schema.equipmentExerciseLinks)
+          .innerJoin(schema.equipmentModels, eq(schema.equipmentModels.id, schema.equipmentExerciseLinks.modelId))
+          .where(inArray(schema.equipmentExerciseLinks.exerciseId, exerciseIds));
+
+        return { muscles, equipment, bodyAreas: BODY_AREAS };
+      });
+    }),
+
+  /** Propose swaps for today only. Writes nothing: the member confirms, and the
+   *  swap is recorded on the workout as a substitution op, never on the program. */
+  adjustDay: tenantProcedure
+    .input(
+      z.object({
+        programVersionId: z.string().uuid(),
+        dayId: z.string().uuid(),
+        reason: z.enum(['soreness', 'injury', 'equipment']),
+        muscleKeys: z.array(z.string().max(40)).max(6).optional(),
+        bodyArea: z.string().max(30).optional(),
+        equipmentModelId: z.string().uuid().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const memberId = ctx.actor.memberId;
+      if (!memberId) throw new TRPCError({ code: 'FORBIDDEN' });
+      await ctx.allow('program.read_assigned', { type: 'program', memberId });
+      return ctx.tenant(async (tx) => {
+        const blocks = await readVersionTree(tx, input.programVersionId);
+        const day = blocks.flatMap((b) => b.weeks.flatMap((w) => w.days)).find((d) => d.id === input.dayId);
+        if (!day) throw new TRPCError({ code: 'NOT_FOUND' });
+        return suggestAdjustments(
+          tx,
+          day.items.map((i) => ({ id: i.id, exerciseId: i.exerciseId })),
+          {
+            reason: input.reason,
+            muscleKeys: input.muscleKeys,
+            bodyArea: input.bodyArea,
+            equipmentModelId: input.equipmentModelId,
+            memberId,
+          },
+        );
       });
     }),
 

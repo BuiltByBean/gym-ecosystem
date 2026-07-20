@@ -11,6 +11,7 @@ import { clockMMSS, displayToKg, kgToDisplay, platesPerSide } from '../../lib/fo
 import { db, type LocalSession } from '../../offline/db';
 import { activeSession, amendSet, foldSession, logSet, logSubstitution, updateSessionFields, voidSet } from '../../offline/workout';
 import { syncNow, type SyncResult } from '../../offline/sync';
+import { AdjustSheet } from './AdjustSheet';
 
 type Plan = Outputs['programs']['todayPlan'];
 type PlanItem = Plan['items'][number];
@@ -44,6 +45,7 @@ export function WorkoutPlayer() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [rest, setRest] = useState<{ total: number; left: number } | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
   const [celebrate, setCelebrate] = useState<SyncResult['newPrs'] | null>(null);
 
   // load session + cached plan
@@ -175,7 +177,12 @@ export function WorkoutPlayer() {
             {fold.sets.filter((s) => !s.voided).length} sets logged · saved on-device instantly
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setFinishing(true)}>Finish</Button>
+        <div className="flex gap-1.5">
+          {session.programVersionId && session.programDayId && navigator.onLine && (
+            <Button variant="ghost" size="sm" onClick={() => setAdjusting(true)}>Adjust</Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setFinishing(true)}>Finish</Button>
+        </div>
       </div>
 
       {rest && (
@@ -250,6 +257,46 @@ export function WorkoutPlayer() {
       <Button variant="quiet" className="w-full" onClick={() => void handleDiscard()}>
         Discard workout
       </Button>
+
+      {session.programVersionId && session.programDayId && (
+        <AdjustSheet
+          open={adjusting}
+          onClose={() => setAdjusting(false)}
+          programVersionId={session.programVersionId}
+          dayId={session.programDayId}
+          onApply={(swaps) => {
+            // session-scoped: record each swap as a substitution op and rewrite
+            // the local plan view. The program version is never touched.
+            for (const swap of swaps) {
+              void logSubstitution({
+                gymId,
+                sessionId: session.id,
+                fromExerciseId: swap.fromExerciseId,
+                toExerciseId: swap.toExerciseId,
+                reason: swap.reason,
+              });
+              const target = items.find((i) => i.exerciseId === swap.fromExerciseId);
+              if (target) {
+                setSubs((s) => ({
+                  ...s,
+                  [target.key]: {
+                    ...target,
+                    exerciseId: swap.toExerciseId,
+                    exerciseName: swap.toName,
+                    targetDisplay: 'match effort',
+                    targetKg: null,
+                    explain: null,
+                    substitutedFrom: target.exerciseName,
+                  },
+                }));
+              }
+            }
+            void refreshFold();
+            void syncNow();
+            toast(`${swaps.length} exercise${swaps.length === 1 ? '' : 's'} swapped for today`);
+          }}
+        />
+      )}
 
       <Modal open={finishing} onClose={() => setFinishing(false)} title="Finish workout">
         <FinishForm onFinish={handleFinish} />

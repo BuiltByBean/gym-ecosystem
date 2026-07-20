@@ -358,6 +358,87 @@ export const membersRouter = router({
       });
     }),
 
+  /** Structured intake: experience, medical history, medications, clearance.
+   *  Same gate as screenings — encrypted at rest, every read audited. */
+  healthProfile: tenantProcedure
+    .input(z.object({ memberId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenant(async (tx) => {
+        const { member, resource } = await memberFacts(tx, input.memberId);
+        if (!member) throw new TRPCError({ code: 'NOT_FOUND' });
+        await ctx.allow('health.read', resource, { notFound: true });
+        const rows = await tx
+          .select()
+          .from(schema.memberHealthProfiles)
+          .where(eq(schema.memberHealthProfiles.memberId, member.id))
+          .limit(1);
+        const p = rows[0];
+        if (!p) return null;
+        const dec = (v: string | null) => (v ? decryptSensitive<string>(v) : null);
+        return {
+          id: p.id,
+          trainingExperience: p.trainingExperience,
+          physicianClearance: p.physicianClearance,
+          heightCm: p.heightCm ? Number(p.heightCm) : null,
+          medicalHistory: dec(p.medicalHistoryEnc),
+          medications: dec(p.medicationsEnc),
+          surgicalHistory: dec(p.surgicalHistoryEnc),
+          physicalLimitations: dec(p.physicalLimitationsEnc),
+          updatedAt: p.updatedAt,
+        };
+      });
+    }),
+
+  healthProfileSave: tenantProcedure
+    .input(
+      z.object({
+        memberId: z.string().uuid(),
+        trainingExperience: z.enum(['beginner', 'intermediate', 'advanced', 'athlete']).nullish(),
+        physicianClearance: z.boolean().optional(),
+        heightCm: z.number().min(50).max(280).nullish(),
+        medicalHistory: z.string().max(5000).nullish(),
+        medications: z.string().max(5000).nullish(),
+        surgicalHistory: z.string().max(5000).nullish(),
+        physicalLimitations: z.string().max(5000).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenant(async (tx) => {
+        const { member, resource } = await memberFacts(tx, input.memberId);
+        if (!member) throw new TRPCError({ code: 'NOT_FOUND' });
+        await ctx.allow('health.write', resource, { notFound: true });
+        const enc = (v: string | null | undefined) => (v ? encryptSensitive(v) : null);
+        const values = {
+          gymId: ctx.gym.id,
+          memberId: member.id,
+          trainingExperience: input.trainingExperience ?? null,
+          physicianClearance: input.physicianClearance ?? false,
+          heightCm: input.heightCm != null ? String(input.heightCm) : null,
+          medicalHistoryEnc: enc(input.medicalHistory),
+          medicationsEnc: enc(input.medications),
+          surgicalHistoryEnc: enc(input.surgicalHistory),
+          physicalLimitationsEnc: enc(input.physicalLimitations),
+          updatedBy: ctx.user.id,
+          updatedAt: new Date().toISOString(),
+        };
+        const existing = await tx
+          .select({ id: schema.memberHealthProfiles.id })
+          .from(schema.memberHealthProfiles)
+          .where(eq(schema.memberHealthProfiles.memberId, member.id))
+          .limit(1);
+        if (existing[0]) {
+          await tx
+            .update(schema.memberHealthProfiles)
+            .set(values)
+            .where(eq(schema.memberHealthProfiles.id, existing[0].id));
+          return { id: existing[0].id };
+        }
+        const id = uuidv7();
+        await tx.insert(schema.memberHealthProfiles).values({ id, ...values });
+        return { id };
+      });
+    }),
+
   screeningTemplate: tenantProcedure.query(async ({ ctx }) => {
     return ctx.tenant(async (tx) => {
       const rows = await tx
